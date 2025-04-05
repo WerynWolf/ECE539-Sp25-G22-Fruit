@@ -12,10 +12,10 @@ import matplotlib.pyplot as plt
 # ----- Config -----
 IMAGE_DIR = 'composited'
 MASK_DIR = 'masks'
-EPOCHS = 5
+EPOCHS = 50
 BATCH_SIZE = 4
 NUM_CLASSES = 2  # 1 class (fruit) + background
-MAX_IMAGES = 200  # Cap to speed up training
+MAX_IMAGES = 2000  # Cap to speed up training
 IMG_SIZE = (256, 256)  # Downsample to speed up training
 
 # ----- Custom Dataset -----
@@ -26,13 +26,11 @@ class FruitSegmentationDataset(Dataset):
         self.transforms = transforms
 
         self.images = []
-        for fruit in os.listdir(image_dir):
-            fruit_path = os.path.join(image_dir, fruit)
-            if not os.path.isdir(fruit_path):
-                continue
-            for file in os.listdir(fruit_path):
-                if file.endswith('.png'):
-                    self.images.append((os.path.join(fruit_path, file), os.path.join(mask_dir, fruit, file.replace('comp_', 'mask_'))))
+        for file in os.listdir(image_dir):
+            if file.endswith('.png'):
+                image_path = os.path.join(image_dir, file)
+                mask_path = os.path.join(mask_dir, file.replace('comp_', 'mask_'))
+                self.images.append((image_path, mask_path))
         self.images = self.images[:MAX_IMAGES]
 
     def __getitem__(self, idx):
@@ -89,14 +87,14 @@ def collate_fn(batch):
     return tuple(zip(*batch))
 
 # ----- Main Training Loop -----
-def train():
+def train(fruit):
     print("[BOOT] TrainMRCNN.py script is running...")
     print("[INFO] Starting training process...")
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     print(f"[INFO] Using device: {device}")
     print("[INFO] Creating dataset...")
     try:
-        dataset = FruitSegmentationDataset(IMAGE_DIR, MASK_DIR)
+        dataset = FruitSegmentationDataset(IMAGE_DIR + "/" +  fruit, MASK_DIR + "/" +  fruit)
         print(f"[INFO] Loaded dataset with {len(dataset)} samples")
     except Exception as e:
         print(f"[ERROR] Failed to load dataset: {e}")
@@ -123,12 +121,12 @@ def train():
         print(f"[INFO] Starting epoch {epoch + 1}/{EPOCHS}...")
         total_loss = 0
         for batch_idx, (images, targets) in enumerate(dataloader):
-            print(f"[BATCH {batch_idx + 1}] Forward pass starting...")
+            #print(f"[BATCH {batch_idx + 1}] Forward pass starting...")
             images = list(image.to(device) for image in images)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
             loss_dict = model(images, targets)
-            print(f"[BATCH {batch_idx + 1}] Forward pass completed.")
+            #print(f"[BATCH {batch_idx + 1}] Forward pass completed.")
             losses = sum(loss for loss in loss_dict.values())
 
             optimizer.zero_grad()
@@ -140,8 +138,8 @@ def train():
         avg_loss = total_loss / len(dataloader)
         print(f"Epoch {epoch + 1}/{EPOCHS} - Average Loss: {avg_loss:.4f}")
 
-    torch.save(model.state_dict(), "mask_rcnn_fruit.pth")
-    print("Model saved to mask_rcnn_fruit.pth")
+    torch.save(model.state_dict(), "mask_rcnn_" + fruit + ".pth")
+    print("Model saved to mask_rcnn_" + fruit + ".pth")
 
 if __name__ == '__main__':
-    train()
+    train("Kiwi")

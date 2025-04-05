@@ -6,86 +6,79 @@ import torchvision.transforms.functional as F
 from torchvision.models.detection import maskrcnn_resnet50_fpn, MaskRCNN_ResNet50_FPN_Weights
 import torchvision
 import numpy as np
+import random
 
-# Config
-IMAGE_DIR = 'composited'
-MODEL_PATH = 'mask_rcnn_fruit.pth'
-DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+def test(fruit):
+    IMAGE_DIR = 'composited'
+    MODEL_PATH = 'mask_rcnn_' + fruit + '.pth'
+    DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-# Load the pre-trained Mask R-CNN model
-weights = MaskRCNN_ResNet50_FPN_Weights.DEFAULT
-model = maskrcnn_resnet50_fpn(weights=weights)
-in_features = model.roi_heads.box_predictor.cls_score.in_features
-model.roi_heads.box_predictor = torchvision.models.detection.faster_rcnn.FastRCNNPredictor(in_features, 2)
-in_features_mask = model.roi_heads.mask_predictor.conv5_mask.in_channels
-model.roi_heads.mask_predictor = torchvision.models.detection.mask_rcnn.MaskRCNNPredictor(in_features_mask, 256, 2)
-model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
-model.to(DEVICE)
-model.eval()
+    # Load the pre-trained Mask R-CNN model
+    weights = MaskRCNN_ResNet50_FPN_Weights.DEFAULT
+    model = maskrcnn_resnet50_fpn(weights=weights)
+    in_features = model.roi_heads.box_predictor.cls_score.in_features
+    model.roi_heads.box_predictor = torchvision.models.detection.faster_rcnn.FastRCNNPredictor(in_features, 2)
+    in_features_mask = model.roi_heads.mask_predictor.conv5_mask.in_channels
+    model.roi_heads.mask_predictor = torchvision.models.detection.mask_rcnn.MaskRCNNPredictor(in_features_mask, 256, 2)
+    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+    model.to(DEVICE)
+    model.eval()
 
-# Function to run inference on a single image
-def run_inference_on_image(image_path):
-    image = Image.open(image_path).convert("RGB")
-    original = image.copy()
-    image_tensor = F.to_tensor(image).to(DEVICE)
+    # Function to run inference on a single image
+    def run_inference_on_image(image_path):
+        image = Image.open(image_path).convert("RGB")
+        original = image.copy()
+        image_tensor = F.to_tensor(image).to(DEVICE)
 
-    with torch.no_grad():
-        output = model([image_tensor])[0]
+        with torch.no_grad():
+            output = model([image_tensor])[0]
 
-    boxes = output['boxes']
-    masks = output['masks'] > 0.5
-    scores = output['scores']
+        boxes = output['boxes']
+        masks = output['masks'] > 0.5
+        scores = output['scores']
 
-    count = 0
-
-    # Display original image before any detections
-    plt.figure(figsize=(10, 5))
-    
-
-    # Detection overlays are applied here
-    plt.title("Detection")
-    plt.axis('off')
-
-    for i in range(len(scores)):
-        if scores[i] < 0.5:
-            continue
-        count += 1
-        box = boxes[i].cpu().numpy().astype(int)
-        mask = masks[i, 0].cpu().numpy()
-
-        # Draw bounding box
-        plt.subplot(1, 2, 1)
-        plt.imshow(np.array(original))
-        plt.title("Original Image")
+        count = 0
+        plt.figure(figsize=(10, 5))
+        plt.title("Detection")
         plt.axis('off')
 
-        plt.subplot(1, 2, 2)
-        plt.imshow(np.array(original))
-        plt.contour(mask, colors='r', linewidths=1)
-        plt.gca().add_patch(plt.Rectangle((box[0], box[1]), box[2]-box[0], box[3]-box[1],
-                                          fill=False, edgecolor='lime', linewidth=2))
-        plt.title(f"Detection #{count}")
-        plt.axis('off')
-        plt.tight_layout()
-    plt.show()
+        for i in range(len(scores)):
+            if scores[i] < 0.5:
+                continue
+            count += 1
+            box = boxes[i].cpu().numpy().astype(int)
+            mask = masks[i, 0].cpu().numpy()
 
-    print(f"Total fruits detected: {count}")
+            plt.subplot(1, 2, 1)
+            plt.imshow(np.array(original))
+            plt.title("Original Image")
+            plt.axis('off')
 
-# Main function to run inference on all images in the specified directory
-def main():
-    fruit_folders = [os.path.join(IMAGE_DIR, d) for d in os.listdir(IMAGE_DIR) if os.path.isdir(os.path.join(IMAGE_DIR, d))]
-    all_images = []
-    for folder in fruit_folders:
-        all_images.extend([os.path.join(folder, f) for f in os.listdir(folder) if f.endswith('.png')])
+            plt.subplot(1, 2, 2)
+            plt.imshow(np.array(original))
+            plt.contour(mask, colors='r', linewidths=1)
+            plt.gca().add_patch(plt.Rectangle((box[0], box[1]), box[2] - box[0], box[3] - box[1],
+                                              fill=False, edgecolor='lime', linewidth=2))
+            plt.title(f"Detection #{count}")
+            plt.axis('off')
+            plt.tight_layout()
+        plt.show()
+        print(f"Total fruits detected: {count}")
 
+    # Limit inference to the specific fruit folder
+    fruit_dir = os.path.join(IMAGE_DIR, fruit)
+    if not os.path.isdir(fruit_dir):
+        print(f"No directory found for fruit: {fruit}")
+        return
+
+    all_images = [os.path.join(fruit_dir, f) for f in os.listdir(fruit_dir) if f.endswith('.png')]
     if not all_images:
         print("No images found for inference.")
         return
 
-    import random
     test_image = random.choice(all_images)
     print(f"Running inference on: {test_image}")
     run_inference_on_image(test_image)
 
 if __name__ == '__main__':
-    main()
+    test("Kiwi")
