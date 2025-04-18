@@ -8,16 +8,13 @@ from torchvision.transforms import functional as F
 import torchvision
 import torchvision.transforms as T
 import matplotlib.pyplot as plt
+from tqdm.auto import tqdm
 
 # ----- Config -----
 IMAGE_DIR = 'composited'
 MASK_DIR = 'masks'
-EPOCHS = 50
-BATCH_SIZE = 4
-NUM_CLASSES = 2  # 1 class (fruit) + background
-MAX_IMAGES = 2000  # Cap to speed up training
-IMG_SIZE = (256, 256)  # Downsample to speed up training
-
+MAX_IMAGES = 4000
+IMG_SIZE = (256, 256)
 # ----- Custom Dataset -----
 class FruitSegmentationDataset(Dataset):
     def __init__(self, image_dir, mask_dir, transforms=None):
@@ -87,7 +84,7 @@ def collate_fn(batch):
     return tuple(zip(*batch))
 
 # ----- Main Training Loop -----
-def train(fruit):
+def train(fruit, EPOCHS = 10, BATCH_SIZE = 100,NUM_CLASSES = 2, lr = .0005):
     print("[BOOT] TrainMRCNN.py script is running...")
     print("[INFO] Starting training process...")
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -114,14 +111,17 @@ def train(fruit):
 
     model.to(device)
     params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.Adam(params, lr=0.0005)
+    optimizer = torch.optim.Adam(params, lr)
 
     model.train()
+
+    epoch_losses = []
+
     for epoch in range(EPOCHS):
         print(f"[INFO] Starting epoch {epoch + 1}/{EPOCHS}...")
         total_loss = 0
-        for batch_idx, (images, targets) in enumerate(dataloader):
-            #print(f"[BATCH {batch_idx + 1}] Forward pass starting...")
+        loop = tqdm(dataloader, desc=f"Epoch {epoch}/{EPOCHS}", leave=False)
+        for images, targets in loop:
             images = list(image.to(device) for image in images)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
@@ -136,10 +136,19 @@ def train(fruit):
             total_loss += losses.item()
 
         avg_loss = total_loss / len(dataloader)
+        epoch_losses.append(avg_loss)
         print(f"Epoch {epoch + 1}/{EPOCHS} - Average Loss: {avg_loss:.4f}")
 
     torch.save(model.state_dict(), "mask_rcnn_" + fruit + ".pth")
     print("Model saved to mask_rcnn_" + fruit + ".pth")
 
+    plt.figure(figsize=(8, 5))
+    plt.plot(range(1, EPOCHS + 1), epoch_losses, marker='o')
+    plt.xlabel("Epoch")
+    plt.ylabel("Average Loss")
+    plt.title(f"Training Loss Curve for {fruit}")
+    plt.grid(True)
+    plt.show()
+
 if __name__ == '__main__':
-    train("Kiwi")
+    train("Kiwi", EPOCHS = 20, BATCH_SIZE = 4,NUM_CLASSES = 2)

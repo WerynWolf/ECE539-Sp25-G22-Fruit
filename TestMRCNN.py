@@ -7,6 +7,7 @@ from torchvision.models.detection import maskrcnn_resnet50_fpn, MaskRCNN_ResNet5
 import torchvision
 import numpy as np
 import random
+from torchvision.ops import nms
 
 def test(fruit):
     IMAGE_DIR = 'composited'
@@ -25,7 +26,7 @@ def test(fruit):
     model.eval()
 
     # Function to run inference on a single image
-    def run_inference_on_image(image_path):
+    def run_inference_on_image(image_path, score_thresh=0.7, iou_thresh=0.2, min_area=10, max_ar=4.0):
         image = Image.open(image_path).convert("RGB")
         original = image.copy()
         image_tensor = F.to_tensor(image).to(DEVICE)
@@ -36,6 +37,18 @@ def test(fruit):
         boxes = output['boxes']
         masks = output['masks'] > 0.5
         scores = output['scores']
+
+        keep = scores >= score_thresh
+        boxes, masks, scores = boxes[keep], masks[keep], scores[keep]
+
+        keep_nms = nms(boxes, scores, iou_thresh)
+        boxes, masks, scores = boxes[keep_nms], masks[keep_nms], scores[keep_nms]
+
+        wh = boxes[:, 2:] - boxes[:, :2]
+        areas = wh[:, 0] * wh[:, 1]
+        ar = wh[:, 0] / (wh[:, 1] + 1e-6)
+        keep_sz = (areas >= min_area) & (ar <= max_ar) & (ar >= 1 / max_ar)
+        boxes, masks, scores = boxes[keep_sz], masks[keep_sz], scores[keep_sz]
 
         count = 0
         plt.figure(figsize=(10, 5))
@@ -81,4 +94,5 @@ def test(fruit):
     run_inference_on_image(test_image)
 
 if __name__ == '__main__':
-    test("Kiwi")
+    for i in range(20) :
+        test("Kiwi")
