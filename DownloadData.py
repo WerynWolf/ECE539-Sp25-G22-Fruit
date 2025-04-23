@@ -127,62 +127,33 @@ def ds2():
 
 
 def ds3():
-    train_ratio, val_ratio, test_ratio = (0.7, 0.15, 0.15)
-
     source_dir = kagglehub.dataset_download("aelchimminut/fruits262")
-    dest_dir = os.getcwd()
-
-    training_dir = os.path.join(dest_dir, "training")
-    validation_dir = os.path.join(dest_dir, "validation")
-    test_dir = os.path.join(dest_dir, "test")
-    for d in [training_dir, validation_dir, test_dir]:
-        os.makedirs(d, exist_ok=True)
-
     fruits_base = os.path.join(source_dir, 'Fruit-262')
+    if not os.path.isdir(fruits_base):
+        raise RuntimeError(f"Could not find Fruit-262 under {source_dir}")
+
+    dest_dir = os.getcwd()
+    test_dir = os.path.join(dest_dir, "test")
+    os.makedirs(test_dir, exist_ok=True)
 
     for fruit_folder in os.listdir(fruits_base):
-        fruit_folder_path = os.path.join(fruits_base, fruit_folder)
-        if os.path.isdir(fruit_folder_path):
-            if allowed_fruits and fruit_folder.lower() not in allowed_fruits:
-                print(f"Skipping folder '{fruit_folder}' as it is not in allowed fruits.")
-                continue
+        fruit_path = os.path.join(fruits_base, fruit_folder)
+        if not os.path.isdir(fruit_path):
+            continue
 
-            fruit_train_dir = os.path.join(training_dir, fruit_folder)
-            fruit_val_dir = os.path.join(validation_dir, fruit_folder)
-            fruit_test_dir = os.path.join(test_dir, fruit_folder)
-            os.makedirs(fruit_train_dir, exist_ok=True)
-            os.makedirs(fruit_val_dir, exist_ok=True)
-            os.makedirs(fruit_test_dir, exist_ok=True)
+        out_dir = os.path.join(test_dir, fruit_folder)
+        os.makedirs(out_dir, exist_ok=True)
 
-            files = [f for f in os.listdir(fruit_folder_path)
-                     if os.path.isfile(os.path.join(fruit_folder_path, f))]
-            random.shuffle(files)
+        files = [
+            f for f in os.listdir(fruit_path)
+            if os.path.isfile(os.path.join(fruit_path, f))
+        ]
 
-            total = len(files)
-            train_count = int(total * train_ratio)
-            val_count = int(total * val_ratio)
-            test_count = total - train_count - val_count
+        for fname in files:
+            src = os.path.join(fruit_path, fname)
+            dst = os.path.join(out_dir, fname)
+            shutil.move(src, dst)
 
-            train_files = files[:train_count]
-            val_files = files[train_count:train_count + val_count]
-            test_files = files[train_count + val_count:]
-
-            for file in train_files:
-                src = os.path.join(fruit_folder_path, file)
-                dst = os.path.join(fruit_train_dir, file)
-                shutil.move(src, dst)
-
-            for file in val_files:
-                src = os.path.join(fruit_folder_path, file)
-                dst = os.path.join(fruit_val_dir, file)
-                shutil.move(src, dst)
-
-            for file in test_files:
-                src = os.path.join(fruit_folder_path, file)
-                dst = os.path.join(fruit_test_dir, file)
-                shutil.move(src, dst)
-
-            print(f"Processed '{fruit_folder}': {len(train_files)} training, {len(val_files)} validation")
 
 
 def backgrounds():
@@ -214,3 +185,4 @@ def backgrounds():
             img.save(filename)
             counters[cat] += 1
 
+ds3()

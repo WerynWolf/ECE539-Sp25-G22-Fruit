@@ -1,4 +1,6 @@
 import os
+from xml.etree.ElementTree import tostring
+
 import numpy as np
 from PIL import Image
 import torch
@@ -139,7 +141,7 @@ def train(fruit, EPOCHS = 10, BATCH_SIZE = 100,NUM_CLASSES = 2, lr = .0005):
         epoch_losses.append(avg_loss)
         print(f"Epoch {epoch + 1}/{EPOCHS} - Average Loss: {avg_loss:.4f}")
 
-    torch.save(model.state_dict(), "mask_rcnn_" + fruit + ".pth")
+        torch.save(model.state_dict(), "models/mask_rcnn_" + fruit + str(epoch+1) + ".pth")
     print("Model saved to mask_rcnn_" + fruit + ".pth")
 
     plt.figure(figsize=(8, 5))
@@ -151,4 +153,7 @@ def train(fruit, EPOCHS = 10, BATCH_SIZE = 100,NUM_CLASSES = 2, lr = .0005):
     plt.show()
 
 if __name__ == '__main__':
-    train("Kiwi", EPOCHS = 20, BATCH_SIZE = 4,NUM_CLASSES = 2)
+    train("Plum", EPOCHS = 35, BATCH_SIZE = 4,NUM_CLASSES = 2)
+    train("Strawberry", EPOCHS=35, BATCH_SIZE=4, NUM_CLASSES=2)
+
+
